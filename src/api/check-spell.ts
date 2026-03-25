@@ -9,17 +9,9 @@ export type CheckResult = {
   mode: "openai-galig" | "bolor-suggest" | "none";
 };
 
-const isCyrillicText = (text: string) => {
-  return /^[А-Яа-яӨөҮүЁёЇїІіҐґ\s]+$/.test(text.trim());
-};
-
-const isLatinText = (text: string) => {
-  return /^[A-Za-z\s]+$/.test(text.trim());
-};
-
-const isSingleWord = (text: string) => {
-  return text.trim().length > 0 && !/\s/.test(text.trim());
-};
+const isCyrillicText = (text: string) => /^[А-Яа-яӨөҮүЁёЇїІіҐґ\s]+$/.test(text.trim());
+const isLatinText = (text: string) => /^[A-Za-z\s]+$/.test(text.trim());
+const isSingleWord = (text: string) => text.trim().length > 0 && !/\s/.test(text.trim());
 
 export const checkText = async (text: string): Promise<CheckResult> => {
   const trimmed = text.trim();
@@ -34,22 +26,21 @@ export const checkText = async (text: string): Promise<CheckResult> => {
     };
   }
 
+
   if (isSingleWord(trimmed) && isCyrillicText(trimmed)) {
     const suggestions = await suggestWithBolor(trimmed);
-    const corrected = suggestions[0] ?? trimmed;
+    const firstSuggestion = suggestions[0]?.suggestion || trimmed;
 
     return {
       original: text,
-      corrected,
-      changed: corrected !== trimmed,
-      suggestions,
-      mode:
-        suggestions.length > 0 && corrected !== trimmed
-          ? "bolor-suggest"
-          : "none",
+      corrected: firstSuggestion,
+      changed: firstSuggestion !== trimmed,
+      suggestions: suggestions.map((s) => s.suggestion),
+      mode: suggestions.length > 0 && firstSuggestion !== trimmed ? "bolor-suggest" : "none",
     };
   }
 
+  // 2️⃣ Latin → OpenAI
   if (isLatinText(trimmed)) {
     const corrected = await correctWithOpenAI(trimmed);
 
@@ -61,6 +52,7 @@ export const checkText = async (text: string): Promise<CheckResult> => {
       mode: corrected !== trimmed ? "openai-galig" : "none",
     };
   }
+
 
   return {
     original: text,
